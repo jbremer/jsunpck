@@ -312,7 +312,7 @@ class _Translator:
 # rules to extract all relevant fields from the javascript tokens
 rules = {
     'script': _Translator('script', parser='array'),
-    'group': _Translator(parser='array'),
+    'group': _Translator('group', parser='array'),
     'var': _Translator(),
     'list': _Translator(parser='array'),
     'array_init': _Translator('array_init', parser='array'),
@@ -404,6 +404,7 @@ class Simplifier:
 
     simplifiers = [
         '_concat_strings',
+        '_empty_group',
     ]
 
     def _concat_strings(self, node):
@@ -411,6 +412,12 @@ class Simplifier:
                 isinstance(node.left, String) and \
                 isinstance(node.right, String):
             return String(node.left.value + node.right.value)
+        return node
+
+    def _empty_group(self, node):
+        if isinstance(node, Array) and node.typ == 'group' and \
+                len(node.values) == 1:
+            return node.values[0]
         return node
 
 if __name__ == '__main__':
