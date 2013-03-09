@@ -1,5 +1,6 @@
 """Javascript Unpacker and Simplifier    (c) Jurriaan Bremer, 2013."""
 import jsparser
+import re
 
 
 class Base:
@@ -8,7 +9,17 @@ class Base:
 
 class String(Base):
     def __init__(self, value):
-        self.value = value
+
+        # decode unicode parts in the string
+        def decode(x):
+            # ascii character?
+            if int(x.group(1), 16) < 0x80:
+                return chr(int(x.group(1), 16))
+
+            # otherwise just keep the original unicode sequence
+            return '\\u' + x.group(1)
+
+        self.value = re.sub(r'\\u([0-9a-f]{4})', decode, value)
 
 
 class Int(Base):
