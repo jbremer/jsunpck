@@ -72,8 +72,9 @@ class Identifier(Base):
 
 
 class New(Base):
-    def __init__(self, identifier):
+    def __init__(self, identifier, args=[]):
         self.identifier = identifier
+        self.args = args
 
 
 class For(Base):
@@ -113,161 +114,130 @@ class Constant(Base):
         self.typ = typ
 
 
-class _Base:
-    def __init__(self, typ, *args, **kwargs):
+class _Translator:
+    def __init__(self, typ=None, parser=None, **kwargs):
         self.typ = typ
-        self.args = args
-        self.kwargs = kwargs
+        self.parser = parser
+        self.__dict__.update(kwargs)
 
+    def parse(self, token, node):
+        return getattr(self, '_' + (self.parser or token))(node)
 
-class _String(_Base):
-    def parse(self, node):
+    def _string(self, node):
         return String(node.value)
 
-
-class _Int(_Base):
-    def parse(self, node):
+    def _number(self, node):
         return Int(node.value)
 
-
-class _Block(_Base):
-    def parse(self, node):
+    def _block(self, node):
         return Block([_parse(node[x]) for x in xrange(len(node))])
 
-
-class _Array(_Base):
-    def parse(self, node):
+    def _array(self, node):
         return Array(self.typ, [_parse(node[x]) for x in xrange(len(node))])
 
-
-class _Var(_Base):
-    def parse(self, node):
+    def _var(self, node):
         return Var([_parse(node[x]) for x in xrange(len(node))])
 
-
-class _Container(_Base):
-    def parse(self, node):
+    def _container(self, node):
         if self.typ == 'semicolon':
             return _parse(node.expression)
         raise Exception(self.typ)
 
-
-class _Operation(_Base):
-    def parse(self, node):
+    def _operation(self, node):
         if len(node) == 1:
             return Operation(self.typ, _parse(node[0]), None)
         return Operation(self.typ, _parse(node[0]), _parse(node[1]))
 
-
-class _Comparison(_Base):
-    def parse(self, node):
+    def _comparison(self, node):
         return Comparison(node.value, _parse(node[0]), _parse(node[1]))
 
-
-class _Conditional(_Base):
-    def parse(self, node):
+    def _conditional(self, node):
         then = _parse(node.thenPart) if node.thenPart else None
         else_ = _parse(node.elsePart) if node.elsePart else None
         return Conditional(condition=_parse(node.condition),
                            then=then,
                            else_=else_)
 
-
-class _Call(_Base):
-    def parse(self, node):
+    def _call(self, node):
         return Call(_parse(node[0]), _parse(node[1]))
 
-
-class _Function(_Base):
-    def parse(self, node):
+    def _function(self, node):
         return Function(_parse(node.body), node.params)
 
-
-class _Identifier(_Base):
-    def parse(self, node):
+    def _identifier(self, node):
         if hasattr(node, 'initializer'):
             return Identifier(node.name, _parse(node.initializer))
         return Identifier(node.value, None)
 
-
-class _New(_Base):
-    def parse(self, node):
+    def _new(self, node):
         return New(_parse(node[0]))
 
+    def _new_with_args(self, node):
+        return New(_parse(node[0]), [_parse(x) for x in node[1]])
 
-class _For(_Base):
-    def parse(self, node):
+    def _for(self, node):
         return For(setup=_parse(node.setup),
                    condition=_parse(node.condition),
                    update=_parse(node.update),
                    body=_parse(node.body))
 
-
-class _Assign(_Base):
-    def parse(self, node):
+    def _assign(self, node):
         return Assign(node.value, _parse(node[0]), _parse(node[1]))
 
-
-class _Index(_Base):
-    def parse(self, node):
+    def _index(self, node):
         return Index(_parse(node[0]), _parse(node[1]))
 
-
-class _Dot(_Base):
-    def parse(self, node):
+    def _dot(self, node):
         return Dot(_parse(node[0]), _parse(node[1]))
 
-
-class _Typeof(_Base):
-    def parse(self, node):
+    def _typeof(self, node):
         return Typeof(_parse(node[0]))
 
-
-class _Constant(_Base):
-    def parse(self, node):
+    def _constant(self, node):
         return Constant(node.value)
 
 # rules to extract all relevant fields from the javascript tokens
 rules = {
-    'script': _Array('script'),
-    'group': _Array('group'),
-    'var': _Var('var'),
-    'list': _Array('list'),
-    'array_init': _Array('array_init'),
-    'block': _Block('block'),
+    'script': _Translator('script', parser='array'),
+    'group': _Translator(parser='array'),
+    'var': _Translator(),
+    'list': _Translator(parser='array'),
+    'array_init': _Translator('array_init', parser='array'),
+    'block': _Translator(),
 
-    'semicolon': _Container('semicolon'),
-    'identifier': _Identifier('identifier'),
+    'semicolon': _Translator('semicolon', parser='container'),
+    'identifier': _Translator(),
 
-    'string': _String(''),
-    'number': _Int(''),
+    'string': _Translator(),
+    'number': _Translator(),
 
-    'plus': _Operation('+', _Base, _Base),
-    'minus': _Operation('-', _Base, _Base),
-    'mod': _Operation('%', _Base, _Base),
-    'div': _Operation('/', _Base, _Base),
-    'bitwise_xor': _Operation('^', _Base, _Base),
-    'and': _Operation('&&', _Base, _Base),
-    'increment': _Operation('++', _Base, None, postfix='postfix'),
+    'plus': _Translator('+', parser='operation'),
+    'minus': _Translator('-', parser='operation'),
+    'mod': _Translator('%', parser='operation'),
+    'div': _Translator('/', parser='operation'),
+    'bitwise_xor': _Translator('^', parser='operation'),
+    'and': _Translator('&&', parser='operation'),
+    'increment': _Translator('++', parser='operation', postfix='postfix'),
 
-    'lt': _Comparison('<', _Base, _Base),
-    'gt': _Comparison('>', _Base, _Base),
-    'eq': _Comparison('==', _Base, _Base),
-    'ne': _Comparison('!=', _Base, _Base),
+    'lt': _Translator('<', parser='comparison'),
+    'gt': _Translator('>', parser='comparison'),
+    'eq': _Translator('==', parser='comparison'),
+    'ne': _Translator('!=', parser='comparison'),
 
-    'if': _Conditional('if'),
+    'if': _Translator(parser='conditional'),
 
-    'call': _Call('call'),
-    'function': _Function('function'),
-    'new': _New('new'),
-    'for': _For('for'),
-    'assign': _Assign('assign'),
-    'index': _Index('index'),
-    'dot': _Dot('dot'),
-    'typeof': _Typeof('typeof'),
+    'call': _Translator(),
+    'function': _Translator(),
+    'new': _Translator(),
+    'new_with_args': _Translator(),
+    'for': _Translator(),
+    'assign': _Translator(),
+    'index': _Translator(),
+    'dot': _Translator(),
+    'typeof': _Translator(),
 
-    'true': _Constant('true'),
-    'false': _Constant('false'),
+    'true': _Translator(parser='constant'),
+    'false': _Translator(parser='constant'),
 }
 
 
@@ -278,7 +248,7 @@ def _parse(node):
         print node
         raise Exception('%s not supported' % token)
 
-    return rules[token].parse(node)
+    return rules[token].parse(token, node)
 
 
 def parse(source):
