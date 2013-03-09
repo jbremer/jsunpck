@@ -16,17 +16,27 @@ class Int(Base):
         self.value = value
 
 
+class Block(Base):
+    def __init__(self, statements):
+        self.statements = statements
+
+
 class Array(Base):
     def __init__(self, typ, values):
         self.typ = typ
         self.values = values
 
 
+class Var(Base):
+    def __init__(self, variables):
+        self.variables = variables
+
+
 class Operation(Base):
-    def __init__(self, typ, value1, value2):
+    def __init__(self, typ, left, right):
         self.typ = typ
-        self.value1 = value1
-        self.value2 = value2
+        self.left = left
+        self.right = right
 
 
 class Comparison(Base):
@@ -75,6 +85,13 @@ class For(Base):
 
 
 class Assign(Base):
+    def __init__(self, typ, left, right):
+        self.typ = typ
+        self.left = left
+        self.right = right
+
+
+class Dot(Base):
     def __init__(self, left, right):
         self.left = left
         self.right = right
@@ -84,6 +101,11 @@ class Index(Base):
     def __init__(self, array, index):
         self.array = array
         self.index = index
+
+
+class Typeof(Base):
+    def __init__(self, value):
+        self.value = value
 
 
 class Constant(Base):
@@ -108,31 +130,38 @@ class _Int(_Base):
         return Int(node.value)
 
 
+class _Block(_Base):
+    def parse(self, node):
+        return Block([_parse(node[x]) for x in xrange(len(node))])
+
+
 class _Array(_Base):
     def parse(self, node):
         return Array(self.typ, [_parse(node[x]) for x in xrange(len(node))])
+
+
+class _Var(_Base):
+    def parse(self, node):
+        return Var([_parse(node[x]) for x in xrange(len(node))])
 
 
 class _Container(_Base):
     def parse(self, node):
         if self.typ == 'semicolon':
             return _parse(node.expression)
-        if self.typ == 'var':
-            return Array('assign',
-                         [_parse(node[x]) for x in xrange(node.length)])
         raise Exception(self.typ)
 
 
 class _Operation(_Base):
     def parse(self, node):
         if len(node) == 1:
-            return Operation(self.typ, node[0], None)
-        return Operation(self.typ, node[0], node[1])
+            return Operation(self.typ, _parse(node[0]), None)
+        return Operation(self.typ, _parse(node[0]), _parse(node[1]))
 
 
 class _Comparison(_Base):
     def parse(self, node):
-        return Comparison(node.value, node[0], node[1])
+        return Comparison(node.value, _parse(node[0]), _parse(node[1]))
 
 
 class _Conditional(_Base):
@@ -176,12 +205,22 @@ class _For(_Base):
 
 class _Assign(_Base):
     def parse(self, node):
-        return Assign(left=node[0], right=node[1])
+        return Assign(node.value, _parse(node[0]), _parse(node[1]))
 
 
 class _Index(_Base):
     def parse(self, node):
-        return Index(node[0], node[1])
+        return Index(_parse(node[0]), _parse(node[1]))
+
+
+class _Dot(_Base):
+    def parse(self, node):
+        return Dot(_parse(node[0]), _parse(node[1]))
+
+
+class _Typeof(_Base):
+    def parse(self, node):
+        return Typeof(_parse(node[0]))
 
 
 class _Constant(_Base):
@@ -192,10 +231,10 @@ class _Constant(_Base):
 rules = {
     'script': _Array('script'),
     'group': _Array('group'),
-    'var': _Array('var'),
+    'var': _Var('var'),
     'list': _Array('list'),
     'array_init': _Array('array_init'),
-    'block': _Array('block'),
+    'block': _Block('block'),
 
     'semicolon': _Container('semicolon'),
     'identifier': _Identifier('identifier'),
@@ -206,6 +245,7 @@ rules = {
     'plus': _Operation('+', _Base, _Base),
     'minus': _Operation('-', _Base, _Base),
     'mod': _Operation('%', _Base, _Base),
+    'div': _Operation('/', _Base, _Base),
     'bitwise_xor': _Operation('^', _Base, _Base),
     'and': _Operation('&&', _Base, _Base),
     'increment': _Operation('++', _Base, None, postfix='postfix'),
@@ -223,6 +263,8 @@ rules = {
     'for': _For('for'),
     'assign': _Assign('assign'),
     'index': _Index('index'),
+    'dot': _Dot('dot'),
+    'typeof': _Typeof('typeof'),
 
     'true': _Constant('true'),
     'false': _Constant('false'),
