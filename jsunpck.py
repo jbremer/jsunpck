@@ -387,12 +387,11 @@ class Simplifier:
             for name, x in ((name, getattr(node, name))
                             for name in node.children):
                 if isinstance(x, Base):
-                    setattr(node, name, simplifier(x))
-                    walk(x, simplifier)
+                    x = walk(simplifier(x), simplifier)
                     setattr(node, name, simplifier(x))
                 elif x:
-                    setattr(node, name, [simplifier(y) for y in x])
-                    [walk(y, simplifier) for y in x]
+                    x = [simplifier(y) for y in x]
+                    x = [walk(y, simplifier) for y in x]
                     setattr(node, name, [simplifier(y) for y in x])
 
             return node
