@@ -404,6 +404,7 @@ class Simplifier:
     simplifiers = [
         '_concat_strings',
         '_empty_group',
+        '_from_char_code',
     ]
 
     def _concat_strings(self, node):
@@ -417,6 +418,13 @@ class Simplifier:
         if isinstance(node, Array) and node.typ == 'group' and \
                 len(node.values) == 1:
             return node.values[0]
+        return node
+
+    def _from_char_code(self, node):
+        if isinstance(node, Call) and isinstance(node.function, Dot) and \
+                str(node.function) == 'String.fromCharCode' and \
+                isinstance(node.params.values[0], Int):
+            return String(chr(node.params.values[0].value))
         return node
 
 if __name__ == '__main__':
