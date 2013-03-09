@@ -3,7 +3,7 @@ import jsparser
 
 
 class Base:
-    pass
+    children = []
 
 
 class String(Base):
@@ -17,22 +17,30 @@ class Int(Base):
 
 
 class Block(Base):
+    children = 'statements',
+
     def __init__(self, statements):
         self.statements = statements
 
 
 class Array(Base):
+    children = 'values',
+
     def __init__(self, typ, values):
         self.typ = typ
         self.values = values
 
 
 class Var(Base):
+    children = 'variables',
+
     def __init__(self, variables):
         self.variables = variables
 
 
 class Operation(Base):
+    children = 'left', 'right'
+
     def __init__(self, typ, left, right):
         self.typ = typ
         self.left = left
@@ -40,6 +48,8 @@ class Operation(Base):
 
 
 class Comparison(Base):
+    children = 'left', 'right'
+
     def __init__(self, typ, left, right):
         self.typ = typ
         self.left = left
@@ -47,6 +57,8 @@ class Comparison(Base):
 
 
 class Conditional(Base):
+    children = 'condition', 'then', 'else_'
+
     def __init__(self, condition, then, else_):
         self.condition = condition
         self.then = then
@@ -54,30 +66,40 @@ class Conditional(Base):
 
 
 class Call(Base):
+    children = 'function', 'params'
+
     def __init__(self, function, params):
         self.function = function
         self.params = params
 
 
 class Function(Base):
+    children = 'function',
+
     def __init__(self, function, params):
         self.function = function
         self.params = params
 
 
 class Identifier(Base):
+    children = 'initializer',
+
     def __init__(self, name, initializer):
         self.name = name
         self.initializer = initializer
 
 
 class New(Base):
+    children = 'identifier', 'args'
+
     def __init__(self, identifier, args=[]):
         self.identifier = identifier
         self.args = args
 
 
 class For(Base):
+    children = 'setup', 'condition', 'update', 'body'
+
     def __init__(self, setup, condition, update, body):
         self.setup = setup
         self.condition = condition
@@ -86,6 +108,8 @@ class For(Base):
 
 
 class Assign(Base):
+    children = 'left', 'right'
+
     def __init__(self, typ, left, right):
         self.typ = typ
         self.left = left
@@ -93,18 +117,24 @@ class Assign(Base):
 
 
 class Dot(Base):
+    children = 'left', 'right'
+
     def __init__(self, left, right):
         self.left = left
         self.right = right
 
 
 class Index(Base):
+    children = 'array', 'index'
+
     def __init__(self, array, index):
         self.array = array
         self.index = index
 
 
 class Typeof(Base):
+    children = 'value',
+
     def __init__(self, value):
         self.value = value
 
@@ -254,6 +284,51 @@ def _parse(node):
 def parse(source):
     """Parses javascript and translates it into our object model."""
     return _parse(jsparser.parse(source))
+
+
+class Simplifier:
+    """Simplifies trees of Javascript objects."""
+
+    def __init__(self, root):
+        self.root = root
+        self.simplified = False
+
+    def __str__(self):
+        return str(self.simplify())
+
+    def simplify(self):
+        if self.simplified:
+            return self.root
+
+        def walk(node, simplifier):
+            for name, x in ((name, getattr(node, name))
+                            for name in node.children):
+                if isinstance(x, Base):
+                    setattr(node, name, simplifier(x))
+                    walk(x, simplifier)
+                    setattr(node, name, simplifier(x))
+                elif x:
+                    setattr(node, name, [simplifier(y) for y in x])
+                    [walk(y, simplifier) for y in x]
+                    setattr(node, name, [simplifier(y) for y in x])
+
+            return node
+
+        for simplifier in self.simplifiers:
+            self.root = walk(self.root, getattr(self, simplifier))
+
+        return self.root
+
+    simplifiers = [
+        '_concat_strings',
+    ]
+
+    def _concat_strings(self, node):
+        if isinstance(node, Operation) and node.typ == '+' and \
+                isinstance(node.left, String) and \
+                isinstance(node.right, String):
+            return String(node.left.value + node.right.value)
+        return node
 
 if __name__ == '__main__':
     import sys
