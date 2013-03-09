@@ -21,10 +21,16 @@ class String(Base):
 
         self.value = re.sub(r'\\u([0-9a-f]{4})', decode, value)
 
+    def __str__(self):
+        return '"%s"' % self.value.replace('"', '\\"')
+
 
 class Int(Base):
     def __init__(self, value):
         self.value = value
+
+    def __str__(self):
+        return '%d' % self.value if self.value < 64 else '0x%x' % self.value
 
 
 class Block(Base):
@@ -32,6 +38,9 @@ class Block(Base):
 
     def __init__(self, statements):
         self.statements = statements
+
+    def __str__(self):
+        return '{\n    %s\n}' % '\n'.join(str(x) for x in self.statements)
 
 
 class Array(Base):
@@ -41,12 +50,22 @@ class Array(Base):
         self.typ = typ
         self.values = values
 
+    def __str__(self):
+        if self.typ == 'script':
+            return '\n'.join(str(x) for x in self.values)
+        if self.typ == 'array_init':
+            return '[%s]' % ', '.join(str(x) for x in self.values)
+        return '(%s)' % ', '.join(str(x) for x in self.values)
+
 
 class Var(Base):
     children = 'variables',
 
     def __init__(self, variables):
         self.variables = variables
+
+    def __str__(self):
+        return '\n'.join('var %s' % str(x) for x in self.variables)
 
 
 class Operation(Base):
@@ -57,6 +76,11 @@ class Operation(Base):
         self.left = left
         self.right = right
 
+    def __str__(self):
+        if self.right is None:
+            return str(self.left) + self.typ
+        return '(%s %s %s)' % (str(self.left), self.typ, str(self.right))
+
 
 class Comparison(Base):
     children = 'left', 'right'
@@ -65,6 +89,9 @@ class Comparison(Base):
         self.typ = typ
         self.left = left
         self.right = right
+
+    def __str__(self):
+        return '(%s %s %s)' % (str(self.left), self.typ, str(self.right))
 
 
 class Conditional(Base):
@@ -75,6 +102,12 @@ class Conditional(Base):
         self.then = then
         self.else_ = else_
 
+    def __str__(self):
+        ret = 'if%s {\n    %s\n}' % (str(self.condition), str(self.then))
+        if self.else_:
+            ret += '\nelse {\n    %s\n}' % str(self.else_)
+        return ret
+
 
 class Call(Base):
     children = 'function', 'params'
@@ -82,6 +115,9 @@ class Call(Base):
     def __init__(self, function, params):
         self.function = function
         self.params = params
+
+    def __str__(self):
+        return str(self.function) + str(self.params)
 
 
 class Function(Base):
@@ -91,6 +127,10 @@ class Function(Base):
         self.function = function
         self.params = params
 
+    def __str__(self):
+        return 'function(%s) {\n    %s\n}' % (', '.join(self.params),
+                                              str(self.function))
+
 
 class Identifier(Base):
     children = 'initializer',
@@ -99,6 +139,11 @@ class Identifier(Base):
         self.name = name
         self.initializer = initializer
 
+    def __str__(self):
+        if not self.initializer is None:
+            return '%s = %s' % (self.name, str(self.initializer))
+        return self.name
+
 
 class New(Base):
     children = 'identifier', 'args'
@@ -106,6 +151,10 @@ class New(Base):
     def __init__(self, identifier, args=[]):
         self.identifier = identifier
         self.args = args
+
+    def __str__(self):
+        return 'new %s(%s)' % (str(self.identifier),
+                               ', '.join(str(x) for x in self.args))
 
 
 class For(Base):
@@ -117,6 +166,12 @@ class For(Base):
         self.update = update
         self.body = body
 
+    def __str__(self):
+        return 'for (%s; %s; %s) {\n    %s\n}' % (str(self.setup),
+                                                  str(self.condition),
+                                                  str(self.update),
+                                                  str(self.body))
+
 
 class Assign(Base):
     children = 'left', 'right'
@@ -126,6 +181,11 @@ class Assign(Base):
         self.left = left
         self.right = right
 
+    def __str__(self):
+        return '%s %s %s' % (str(self.left),
+                             self.typ if self.typ == '=' else self.typ + '=',
+                             str(self.right))
+
 
 class Dot(Base):
     children = 'left', 'right'
@@ -133,6 +193,9 @@ class Dot(Base):
     def __init__(self, left, right):
         self.left = left
         self.right = right
+
+    def __str__(self):
+        return '%s.%s' % (str(self.left), str(self.right))
 
 
 class Index(Base):
@@ -142,6 +205,9 @@ class Index(Base):
         self.array = array
         self.index = index
 
+    def __str__(self):
+        return '%s[%s]' % (str(self.array), str(self.index))
+
 
 class Typeof(Base):
     children = 'value',
@@ -149,10 +215,16 @@ class Typeof(Base):
     def __init__(self, value):
         self.value = value
 
+    def __str__(self):
+        return 'typeof(%s)' % str(self.value)
+
 
 class Constant(Base):
     def __init__(self, typ):
         self.typ = typ
+
+    def __str__(self):
+        return self.typ
 
 
 class _Translator:
@@ -342,5 +414,8 @@ class Simplifier:
         return node
 
 if __name__ == '__main__':
+    import jsbeautifier
     import sys
-    print parse(open(sys.argv[1], 'rb').read())
+    obj = parse(open(sys.argv[1], 'rb').read())
+
+    print jsbeautifier.beautify(str(Simplifier(obj)))
