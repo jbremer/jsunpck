@@ -103,9 +103,9 @@ class Conditional(Base):
         self.else_ = else_
 
     def __str__(self):
-        ret = 'if%s {\n    %s\n}' % (str(self.condition), str(self.then))
+        ret = 'if%s\n%s\n' % (str(self.condition), str(self.then))
         if self.else_:
-            ret += '\nelse {\n    %s\n}' % str(self.else_)
+            ret += '\nelse\n%s\n' % str(self.else_)
         return ret
 
 
@@ -167,10 +167,10 @@ class For(Base):
         self.body = body
 
     def __str__(self):
-        return 'for (%s; %s; %s) {\n    %s\n}' % (str(self.setup),
-                                                  str(self.condition),
-                                                  str(self.update),
-                                                  str(self.body))
+        return 'for (%s;%s;%s)\n%s\n' % (str(self.setup),
+                                         str(self.condition),
+                                         str(self.update),
+                                         str(self.body))
 
 
 class Assign(Base):
@@ -216,7 +216,7 @@ class Typeof(Base):
         self.value = value
 
     def __str__(self):
-        return 'typeof(%s)' % str(self.value)
+        return 'typeof%s' % str(self.value)
 
 
 class Constant(Base):
