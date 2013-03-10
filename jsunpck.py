@@ -420,7 +420,8 @@ class Simplifier:
 
     def _empty_group(self, node):
         if isinstance(node, Array) and node.typ == 'group' and \
-                len(node.values) == 1:
+                len(node.values) == 1 and \
+                isinstance(node.values[0], (Int, String)):
             return node.values[0]
         return node
 
