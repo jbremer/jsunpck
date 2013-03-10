@@ -376,6 +376,8 @@ class Simplifier:
         self.root = root
         self.simplified = False
 
+        self.variables = {}
+
     def __str__(self):
         return str(self.simplify())
 
@@ -412,6 +414,8 @@ class Simplifier:
         '_hardcoded_obj_calls',
         '_index_string',
         '_parse_int',
+        '_rename_variables',
+        '_string_indices',
     ]
 
     def _concat_strings(self, node):
@@ -470,6 +474,29 @@ class Simplifier:
         if isinstance(node.function, Identifier) and len(params) == 2 and \
                 isinstance(params[0], String) and isinstance(params[1], Int):
             return Int(int(params[0].value, params[1].value))
+        return node
+
+    def _rename_variables(self, node):
+        if isinstance(node, Var):
+            for var in node.variables:
+                if var.name[:4] != 'var_' and not var.name in self.variables:
+                    self.variables[var.name] = 'var_%d' % len(self.variables)
+
+        if isinstance(node, Identifier) and node.name in self.variables:
+            return Identifier(self.variables[node.name], node.initializer)
+        return node
+
+    def _string_indices(self, node):
+        if not isinstance(node, Call):
+            return node
+
+        fn = node.function
+        if isinstance(fn, Dot) and isinstance(fn.left, Array) and \
+                fn.left.typ == 'group' and len(fn.left.values) == 1 and \
+                isinstance(fn.left.values[0], Identifier) and \
+                isinstance(fn.right, Identifier) and \
+                fn.right.name == 'toString':
+            return fn.left.values[0]
         return node
 
 if __name__ == '__main__':
