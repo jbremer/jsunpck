@@ -135,7 +135,7 @@ class Function(Base):
 class Identifier(Base):
     children = 'initializer',
 
-    def __init__(self, name, initializer):
+    def __init__(self, name, initializer=None):
         self.name = name
         self.initializer = initializer
 
@@ -409,6 +409,9 @@ class Simplifier:
         '_concat_strings',
         '_empty_group',
         '_from_char_code',
+        '_hardcoded_obj_calls',
+        '_index_string',
+        '_parse_int',
     ]
 
     def _concat_strings(self, node):
@@ -430,6 +433,43 @@ class Simplifier:
                 str(node.function) == 'String.fromCharCode' and \
                 isinstance(node.params.values[0], Int):
             return String(chr(node.params.values[0].value))
+        return node
+
+    def _hardcoded_obj_calls(self, node):
+        if not isinstance(node, Call):
+            return node
+
+        tbl = {
+            (String, 'toLowerCase'): lambda x: String(x.lower()),
+            (String, 'toUpperCase'): lambda x: String(x.upper()),
+            (String, 'toString'): lambda x: String(x),
+            (Int, 'toString'): lambda x: String(str(x)),
+        }
+
+        fn = node.function
+        if isinstance(fn, Dot) and isinstance(fn.left, (Int, String)) and \
+                isinstance(fn.right, Identifier) and \
+                (fn.left.__class__, fn.right.name) in tbl:
+            return tbl[fn.left.__class__, fn.right.name](fn.left.value)
+        return node
+
+    def _index_string(self, node):
+        if not isinstance(node, Index):
+            return node
+
+        if isinstance(node.array, Identifier) and \
+                isinstance(node.index, String):
+            return Dot(node.array, Identifier(node.index.value))
+        return node
+
+    def _parse_int(self, node):
+        if not isinstance(node, Call):
+            return node
+
+        params = node.params.values
+        if isinstance(node.function, Identifier) and len(params) == 2 and \
+                isinstance(params[0], String) and isinstance(params[1], Int):
+            return Int(int(params[0].value, params[1].value))
         return node
 
 if __name__ == '__main__':
