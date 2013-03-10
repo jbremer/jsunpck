@@ -384,6 +384,7 @@ class Simplifier:
             return self.root
 
         def walk(node, simplifier):
+            self.count += 1
             for name, x in ((name, getattr(node, name))
                             for name in node.children):
                 if isinstance(x, Base):
@@ -396,8 +397,11 @@ class Simplifier:
 
             return node
 
-        for simplifier in self.simplifiers:
-            self.root = walk(self.root, getattr(self, simplifier))
+        length, self.count = -1, 0
+        while length != self.count:
+            length, self.count = self.count, 0
+            for simplifier in self.simplifiers:
+                self.root = walk(self.root, getattr(self, simplifier))
 
         return self.root
 
