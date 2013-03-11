@@ -469,23 +469,18 @@ class Simplifier:
     ]
 
     def _concat_strings(self, node):
-        if isinstance(node, Operation) and node.typ == '+' and \
-                isinstance(node.left, String) and \
-                isinstance(node.right, String):
+        if node == Operation('+', String(), String()):
             return String(node.left.value + node.right.value)
         return node
 
     def _empty_group(self, node):
-        if isinstance(node, Array) and node.typ == 'group' and \
-                len(node.values) == 1 and \
-                isinstance(node.values[0], (Int, String)):
+        if node in (Array('group', [Int()]), Array('group', [String()])):
             return node.values[0]
         return node
 
     def _from_char_code(self, node):
-        if isinstance(node, Call) and isinstance(node.function, Dot) and \
-                str(node.function) == 'String.fromCharCode' and \
-                isinstance(node.params.values[0], Int):
+        if node == Call(Dot(Identifier('String'), Identifier('fromCharCode')),
+                        Array(None, [Int()])):
             return String(chr(node.params.values[0].value))
         return node
 
@@ -493,37 +488,30 @@ class Simplifier:
         if not isinstance(node, Call):
             return node
 
+        if node.function == Dot(Int(), Identifier('toString')):
+            return String(str(node.function.left))
+
         tbl = {
-            (String, 'toLowerCase'): lambda x: String(x.lower()),
-            (String, 'toUpperCase'): lambda x: String(x.upper()),
-            (String, 'toString'): lambda x: String(x),
-            (Int, 'toString'): lambda x: String(str(x)),
+            'toLowerCase': lambda x: x.lower(),
+            'toUpperCase': lambda x: x.upper(),
+            'toString': lambda x: x,
         }
 
         fn = node.function
-        if isinstance(fn, Dot) and isinstance(fn.left, (Int, String)) and \
-                isinstance(fn.right, Identifier) and \
-                (fn.left.__class__, fn.right.name) in tbl:
-            return tbl[fn.left.__class__, fn.right.name](fn.left.value)
+        if fn == Dot(String(), Identifier()) and fn.right.name in tbl:
+            return String(tbl[fn.right.name](fn.left.value))
         return node
 
     def _index_string(self, node):
-        if not isinstance(node, Index):
-            return node
-
-        if isinstance(node.array, Identifier) and \
-                isinstance(node.index, String):
+        if node == Index(Identifier(), String()):
             return Dot(node.array, Identifier(node.index.value))
         return node
 
     def _parse_int(self, node):
-        if not isinstance(node, Call):
-            return node
-
-        params = node.params.values
-        if isinstance(node.function, Identifier) and len(params) == 2 and \
-                isinstance(params[0], String) and isinstance(params[1], Int):
-            return Int(int(params[0].value, params[1].value))
+        if node == Call(Identifier('parseInt'),
+                        Array(None, [String(), Int()])):
+            return Int(int(node.params.values[0].value,
+                           node.params.values[1].value))
         return node
 
     def _rename_variables(self, node):
@@ -537,16 +525,9 @@ class Simplifier:
         return node
 
     def _string_indices(self, node):
-        if not isinstance(node, Call):
-            return node
-
-        fn = node.function
-        if isinstance(fn, Dot) and isinstance(fn.left, Array) and \
-                fn.left.typ == 'group' and len(fn.left.values) == 1 and \
-                isinstance(fn.left.values[0], Identifier) and \
-                isinstance(fn.right, Identifier) and \
-                fn.right.name == 'toString':
-            return fn.left.values[0]
+        if node == Call(Dot(Array('group', [Identifier()]),
+                            Identifier('toString')), Array(None, [])):
+            return node.function.left.values[0]
         return node
 
 if __name__ == '__main__':
