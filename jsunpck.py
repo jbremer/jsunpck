@@ -466,6 +466,7 @@ class Simplifier:
         '_parse_int',
         '_rename_variables',
         '_string_indices',
+        '_subtract_itself',
     ]
 
     def _concat_strings(self, node):
@@ -528,6 +529,11 @@ class Simplifier:
         if node == Call(Dot(Array('group', [Identifier()]),
                             Identifier('toString')), Array(None, [])):
             return node.function.left.values[0]
+        return node
+
+    def _subtract_itself(self, node):
+        if node == Operation('-', Identifier(), Identifier()):
+            return Int(0)
         return node
 
 if __name__ == '__main__':
