@@ -6,9 +6,19 @@ import re
 class Base:
     children = []
 
+    def __cmp__(self, other):
+        if self.__class__ != other.__class__:
+            return 1
+
+        for x in self.children:
+            if cmp(getattr(self, x), getattr(other, x)):
+                return 1
+
+        return 0
+
 
 class String(Base):
-    def __init__(self, value):
+    def __init__(self, value=None):
 
         # decode unicode parts in the string
         def decode(x):
@@ -19,18 +29,36 @@ class String(Base):
             # otherwise just keep the original unicode sequence
             return '\\u' + x.group(1)
 
-        self.value = re.sub(r'\\u([0-9a-f]{4})', decode, value)
+        self.value = None
+        if not value is None:
+            self.value = re.sub(r'\\u([0-9a-f]{4})', decode, value)
 
     def __str__(self):
         return '"%s"' % self.value.replace('"', '\\"')
 
+    def __cmp__(self, other):
+        base = Base.__cmp__(self, other)
+
+        if not base and hasattr(other, 'value') and other.value is None:
+            return 0
+
+        return base or self.value != other.value
+
 
 class Int(Base):
-    def __init__(self, value):
+    def __init__(self, value=None):
         self.value = value
 
     def __str__(self):
         return '%d' % self.value if self.value < 64 else '0x%x' % self.value
+
+    def __cmp__(self, other):
+        base = Base.__cmp__(self, other)
+
+        if not base and hasattr(other, 'value') and other.value is None:
+            return 0
+
+        return base or self.value != other.value
 
 
 class Block(Base):
@@ -57,6 +85,9 @@ class Array(Base):
             return '[%s]' % ', '.join(str(x) for x in self.values)
         return '(%s)' % ', '.join(str(x) for x in self.values)
 
+    def __cmp__(self, other):
+        return Base.__cmp__(self, other) or self.typ != other.typ
+
 
 class Var(Base):
     children = 'variables',
@@ -81,6 +112,9 @@ class Operation(Base):
             return str(self.left) + self.typ
         return '(%s %s %s)' % (str(self.left), self.typ, str(self.right))
 
+    def __cmp__(self, other):
+        return Base.__cmp__(self, other) or self.typ != other.typ
+
 
 class Comparison(Base):
     children = 'left', 'right'
@@ -92,6 +126,9 @@ class Comparison(Base):
 
     def __str__(self):
         return '(%s %s %s)' % (str(self.left), self.typ, str(self.right))
+
+    def __cmp__(self, other):
+        return Base.__cmp__(self, other) or self.typ != other.typ
 
 
 class Conditional(Base):
@@ -131,11 +168,14 @@ class Function(Base):
         return 'function(%s) {\n    %s\n}' % (', '.join(self.params),
                                               str(self.function))
 
+    def __cmp__(self, other):
+        return Base.__cmp__(self, other) or self.params != other.params
+
 
 class Identifier(Base):
     children = 'initializer',
 
-    def __init__(self, name, initializer=None):
+    def __init__(self, name=None, initializer=None):
         self.name = name
         self.initializer = initializer
 
@@ -143,6 +183,10 @@ class Identifier(Base):
         if not self.initializer is None:
             return '%s = %s' % (self.name, str(self.initializer))
         return self.name
+
+    def __cmp__(self, other):
+        return Base.__cmp__(self, other) or \
+            (self.name != other.name and not other.name is None)
 
 
 class New(Base):
@@ -186,6 +230,9 @@ class Assign(Base):
                              self.typ if self.typ == '=' else self.typ + '=',
                              str(self.right))
 
+    def __cmp__(self, other):
+        return Base.__cmp__(self, other) or self.typ != other.typ
+
 
 class Dot(Base):
     children = 'left', 'right'
@@ -225,6 +272,9 @@ class Constant(Base):
 
     def __str__(self):
         return self.typ
+
+    def __cmp__(self, other):
+        return Base.__cmp__(self, other) or self.typ != other.typ
 
 
 class _Translator:
