@@ -468,7 +468,6 @@ class Simplifier:
         '_index_string',
         '_parse_int',
         '_rename_variables',
-        '_string_indices',
         '_subtract_itself',
     ]
 
@@ -508,6 +507,9 @@ class Simplifier:
                 return Dot(node.array, Identifier(node.index.value))
             else:
                 return Index(node.array, Int(int(node.index.value)))
+        if node == Index(Base(), Call(Dot(Base(), Identifier('toString')),
+                                      Array(None, []))):
+            return Index(node.array, node.index.function.left)
 
     def _parse_int(self, node):
         if node == Call(Identifier('parseInt'),
@@ -523,11 +525,6 @@ class Simplifier:
 
         if isinstance(node, Identifier) and node.name in self.variables:
             return Identifier(self.variables[node.name], node.initializer)
-
-    def _string_indices(self, node):
-        if node == Call(Dot(Array('group', [Base()]),
-                            Identifier('toString')), Array(None, [])):
-            return node.function.left.values[0]
 
     def _subtract_itself(self, node):
         if node == Operation('-', Identifier(), Identifier()):
