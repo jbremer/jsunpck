@@ -476,7 +476,9 @@ class Simplifier:
             return String(node.left.value + node.right.value)
 
     def _empty_group(self, node):
-        if node == Array('group', [Base()]):
+        if node in (Array('group', [Int()]),
+                    Array('group', [String()]),
+                    Array('group', [Identifier()])):
             return node.values[0]
 
     def _from_char_code(self, node):
