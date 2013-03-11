@@ -440,12 +440,12 @@ class Simplifier:
             for name, x in ((name, getattr(node, name))
                             for name in node.children):
                 if isinstance(x, Base):
-                    x = walk(simplifier(x), simplifier)
-                    setattr(node, name, simplifier(x))
+                    x = walk(simplifier(x) or x, simplifier)
+                    setattr(node, name, simplifier(x) or x)
                 elif x:
-                    x = [simplifier(y) for y in x]
+                    x = [simplifier(y) or y for y in x]
                     x = [walk(y, simplifier) for y in x]
-                    setattr(node, name, [simplifier(y) for y in x])
+                    setattr(node, name, [simplifier(y) or y for y in x])
 
             return node
 
@@ -472,18 +472,15 @@ class Simplifier:
     def _concat_strings(self, node):
         if node == Operation('+', String(), String()):
             return String(node.left.value + node.right.value)
-        return node
 
     def _empty_group(self, node):
         if node in (Array('group', [Int()]), Array('group', [String()])):
             return node.values[0]
-        return node
 
     def _from_char_code(self, node):
         if node == Call(Dot(Identifier('String'), Identifier('fromCharCode')),
                         Array(None, [Int()])):
             return String(chr(node.params.values[0].value))
-        return node
 
     def _hardcoded_obj_calls(self, node):
         if not isinstance(node, Call):
@@ -501,19 +498,16 @@ class Simplifier:
         fn = node.function
         if fn == Dot(String(), Identifier()) and fn.right.name in tbl:
             return String(tbl[fn.right.name](fn.left.value))
-        return node
 
     def _index_string(self, node):
         if node == Index(Identifier(), String()):
             return Dot(node.array, Identifier(node.index.value))
-        return node
 
     def _parse_int(self, node):
         if node == Call(Identifier('parseInt'),
                         Array(None, [String(), Int()])):
             return Int(int(node.params.values[0].value,
                            node.params.values[1].value))
-        return node
 
     def _rename_variables(self, node):
         if isinstance(node, Var):
@@ -523,18 +517,15 @@ class Simplifier:
 
         if isinstance(node, Identifier) and node.name in self.variables:
             return Identifier(self.variables[node.name], node.initializer)
-        return node
 
     def _string_indices(self, node):
         if node == Call(Dot(Array('group', [Identifier()]),
                             Identifier('toString')), Array(None, [])):
             return node.function.left.values[0]
-        return node
 
     def _subtract_itself(self, node):
         if node == Operation('-', Identifier(), Identifier()):
             return Int(0)
-        return node
 
 if __name__ == '__main__':
     import jsbeautifier
