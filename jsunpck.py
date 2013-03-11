@@ -525,6 +525,12 @@ class Simplifier:
                 if var.name[:4] != 'var_' and not var.name in self.variables:
                     self.variables[var.name] = 'var_%d' % len(self.variables)
 
+        if isinstance(node, Function):
+            for idx, var in enumerate(node.params):
+                if var[:6] != 'param_' and not var in self.variables:
+                    self.variables[var] = 'param_%d' % len(self.variables)
+                    node.params[idx] = self.variables[var]
+
         if isinstance(node, Identifier) and node.name in self.variables:
             return Identifier(self.variables[node.name], node.initializer)
 
