@@ -7,11 +7,14 @@ class Base:
     children = []
 
     def __cmp__(self, other):
+        if other.__class__ == Base:
+            return -1
+
         if self.__class__ != other.__class__:
             return 1
 
         for x in self.children:
-            if cmp(getattr(self, x), getattr(other, x)):
+            if cmp(getattr(self, x), getattr(other, x)) > 0:
                 return 1
 
         return 0
@@ -474,7 +477,7 @@ class Simplifier:
             return String(node.left.value + node.right.value)
 
     def _empty_group(self, node):
-        if node in (Array('group', [Int()]), Array('group', [String()])):
+        if node == Array('group', [Base()]):
             return node.values[0]
 
     def _from_char_code(self, node):
@@ -519,7 +522,7 @@ class Simplifier:
             return Identifier(self.variables[node.name], node.initializer)
 
     def _string_indices(self, node):
-        if node == Call(Dot(Array('group', [Identifier()]),
+        if node == Call(Dot(Array('group', [Base()]),
                             Identifier('toString')), Array(None, [])):
             return node.function.left.values[0]
 
