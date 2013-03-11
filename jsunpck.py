@@ -266,7 +266,7 @@ class Typeof(Base):
         self.value = value
 
     def __str__(self):
-        return 'typeof%s' % str(self.value)
+        return 'typeof(%s)' % str(self.value)
 
 
 class Constant(Base):
@@ -503,8 +503,11 @@ class Simplifier:
             return String(tbl[fn.right.name](fn.left.value))
 
     def _index_string(self, node):
-        if node == Index(Identifier(), String()):
-            return Dot(node.array, Identifier(node.index.value))
+        if node == Index(Base(), String()):
+            if not node.index.value.isdigit():
+                return Dot(node.array, Identifier(node.index.value))
+            else:
+                return Index(node.array, Int(int(node.index.value)))
 
     def _parse_int(self, node):
         if node == Call(Identifier('parseInt'),
