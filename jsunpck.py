@@ -487,7 +487,6 @@ class Simplifier:
     simplifiers = [
         '_concat_strings',
         '_empty_group',
-        '_from_char_code',
         '_hardcoded_obj_calls',
         '_index_string',
         '_parse_int',
@@ -507,20 +506,22 @@ class Simplifier:
                     Array('group', [Identifier()])):
             return node.values[0]
 
-    def _from_char_code(self, node):
-        if node == Call(Dot(Identifier('String'), Identifier('fromCharCode')),
-                        Array(None, [Int()])):
-            return String(chr(node.params.values[0].value))
-
     def _hardcoded_obj_calls(self, node):
         if not isinstance(node, Call):
             return node
 
         fn, params = node.function, node.params.values
+
+        # Int.toString() or Int.toString(base)
         if fn == Dot(Int(), Identifier('toString')) and \
                 params in ([], [Int()]):
             base = 10 if not len(params) else params[0].value
             return String(base_n(int(fn.left.value), base))
+
+        # String.fromCharCode(Int(), Int(), Int(), ...)
+        if fn == Dot(Identifier('String'), Identifier('fromCharCode')) and \
+                not [x for x in params if not isinstance(x, Int)]:
+            return String(''.join(chr(x.value) for x in params))
 
         tbl = {
             'toLowerCase': lambda x: x.lower(),
@@ -528,7 +529,6 @@ class Simplifier:
             'toString': lambda x: x,
         }
 
-        fn = node.function
         if fn == Dot(String(), Identifier()) and fn.right.name in tbl:
             return String(tbl[fn.right.name](fn.left.value))
 
