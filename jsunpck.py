@@ -112,7 +112,7 @@ class Operation(Base):
 
     def __str__(self):
         if self.right is None:
-            return str(self.left) + self.typ
+            return self.typ + str(self.left)
         return '(%s %s %s)' % (str(self.left), self.typ, str(self.right))
 
     def __cmp__(self, other):
@@ -379,10 +379,16 @@ rules = {
 
     'plus': _Translator('+', parser='operation'),
     'minus': _Translator('-', parser='operation'),
+    'mul': _Translator('*', parser='operation'),
     'mod': _Translator('%', parser='operation'),
     'div': _Translator('/', parser='operation'),
+    'unary_minus': _Translator('-', parser='operation'),
+    'bitwise_not': _Translator('~', parser='operation'),
     'bitwise_xor': _Translator('^', parser='operation'),
+    'lsh': _Translator('<<', parser='operation'),
+    'rsh': _Translator('>>', parser='operation'),
     'and': _Translator('&&', parser='operation'),
+    'or': _Translator('||', parser='operation'),
     'increment': _Translator('++', parser='operation', postfix='postfix'),
 
     'lt': _Translator('<', parser='comparison'),
