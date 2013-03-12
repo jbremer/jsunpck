@@ -494,6 +494,7 @@ class Simplifier:
         '_subtract_itself',
         '_const_arithmetic',
         '_const_str_length',
+        '_single_return_value',
     ]
 
     def _concat_strings(self, node):
@@ -597,6 +598,11 @@ class Simplifier:
     def _const_str_length(self, node):
         if node == Dot(String(), Identifier('length')):
             return Int(len(node.left.value))
+
+    def _single_return_value(self, node):
+        # function with no parameters and only a return statement
+        if node == Function(Array('script', [Return(Base())]), []):
+            return node.function.values[0].value
 
 if __name__ == '__main__':
     import jsbeautifier
