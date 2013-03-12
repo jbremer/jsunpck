@@ -479,6 +479,7 @@ class Simplifier:
         '_parse_int',
         '_rename_variables',
         '_subtract_itself',
+        '_const_str_length',
     ]
 
     def _concat_strings(self, node):
@@ -547,8 +548,13 @@ class Simplifier:
             return Identifier(self.variables[node.name], node.initializer)
 
     def _subtract_itself(self, node):
-        if node == Operation('-', Identifier(), Identifier()):
+        if node == Operation('-', Identifier(), Identifier()) and \
+                node.left.name == node.right.name:
             return Int(0)
+
+    def _const_str_length(self, node):
+        if node == Dot(String(), Identifier('length')):
+            return Int(len(node.left.value))
 
 if __name__ == '__main__':
     import jsbeautifier
