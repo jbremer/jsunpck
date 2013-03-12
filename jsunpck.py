@@ -502,7 +502,8 @@ class Simplifier:
             return node
 
         fn, params = node.function, node.params.values
-        if fn == Dot(Int(), Identifier('toString')):
+        if fn == Dot(Int(), Identifier('toString')) and \
+                params in ([], [Int()]):
             base = 10 if not len(params) else params[0].value
             return String(base_n(int(fn.left.value), base))
 
