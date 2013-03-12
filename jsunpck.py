@@ -294,6 +294,29 @@ class Constant(Base):
         return Base.__cmp__(self, other) or self.typ != other.typ
 
 
+class Try(Base):
+    children = 'try_block', 'catch_clauses'
+
+    def __init__(self, try_block, catch_clauses):
+        self.try_block = try_block
+        self.catch_clauses = catch_clauses
+
+    def __str__(self):
+        return 'try %s %s' % (str(self.try_block),
+                              '\n'.join(str(x) for x in self.catch_clauses))
+
+
+class Catch(Base):
+    children = 'block',
+
+    def __init__(self, var_name, block):
+        self.var_name = var_name
+        self.block = block
+
+    def __str__(self):
+        return 'catch (%s) %s' % (self.var_name, str(self.block))
+
+
 class _Translator:
     def __init__(self, typ=None, parser=None, **kwargs):
         self.typ = typ
@@ -379,6 +402,13 @@ class _Translator:
     def _constant(self, node):
         return Constant(node.value)
 
+    def _try(self, node):
+        return Try(_parse(node.tryBlock),
+                   [_parse(x) for x in node.catchClauses])
+
+    def _catch(self, node):
+        return Catch(node.varName, _parse(node.block))
+
 # rules to extract all relevant fields from the javascript tokens
 rules = {
     'script': _Translator('script', parser='array'),
@@ -428,6 +458,9 @@ rules = {
 
     'true': _Translator(parser='constant'),
     'false': _Translator(parser='constant'),
+
+    'try': _Translator(),
+    'catch': _Translator(),
 }
 
 
