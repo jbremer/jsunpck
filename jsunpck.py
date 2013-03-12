@@ -662,7 +662,11 @@ class Simplifier:
     def _hardcoded_if(self, node):
         if isinstance(node, Conditional) and \
                 isinstance(node.condition, Constant):
-            return node.then if node.condition.typ == 'true' else node.else_
+            tbl = {
+                'true': node.then,
+                'false': node.else_,
+            }
+            return tbl.get(node.condition.typ, node)
 
 if __name__ == '__main__':
     import jsbeautifier
