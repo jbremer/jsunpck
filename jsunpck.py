@@ -157,7 +157,7 @@ class Conditional(Base):
         self.else_ = else_
 
     def __str__(self):
-        if isinstance(self.condition, Identifier):
+        if isinstance(self.condition, (Int, String, Identifier, Constant)):
             ret = 'if(%s)' % str(self.condition)
         else:
             ret = 'if %s' % str(self.condition)
@@ -534,6 +534,7 @@ class Simplifier:
         '_const_arithmetic',
         '_const_str_length',
         '_single_return_value',
+        '_const_comparison',
     ]
 
     def _concat_strings(self, node):
@@ -643,6 +644,19 @@ class Simplifier:
         # function with no parameters and only a return statement
         if node == Function(Array('script', [Return(Base())]), []):
             return node.function.values[0].value
+
+    def _const_comparison(self, node):
+        tbl = {
+            '<': lambda x, y: x < y,
+            '>': lambda x, y: x > y,
+            '==': lambda x, y: x == y,
+            '!=': lambda x, y: x != y,
+        }
+
+        if Base.__cmp__(node, Comparison(None, Int(), Int())) == 0 and \
+                node.typ in tbl:
+            val = tbl[node.typ](node.left.value, node.right.value)
+            return Constant('true' if val else 'false')
 
 if __name__ == '__main__':
     import jsbeautifier
