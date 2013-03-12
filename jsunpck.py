@@ -433,6 +433,7 @@ rules = {
     'unary_minus': _Translator('-', parser='operation'),
     'bitwise_not': _Translator('~', parser='operation'),
     'bitwise_xor': _Translator('^', parser='operation'),
+    'bitwise_or': _Translator('|', parser='operation'),
     'lsh': _Translator('<<', parser='operation'),
     'rsh': _Translator('>>', parser='operation'),
     'and': _Translator('&&', parser='operation'),
@@ -616,6 +617,7 @@ class Simplifier:
             '>>': lambda x, y: x >> y,
             '<<': lambda x, y: x << y,
             '^': lambda x, y: x ^ y,
+            '|': lambda x, y: x | y,
             '&&': lambda x, y: y if x else 0,
             '||': lambda x, y: x if x else y,
         }
