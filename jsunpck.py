@@ -535,6 +535,7 @@ class Simplifier:
         '_const_str_length',
         '_single_return_value',
         '_const_comparison',
+        '_hardcoded_if',
     ]
 
     def _concat_strings(self, node):
@@ -657,6 +658,11 @@ class Simplifier:
                 node.typ in tbl:
             val = tbl[node.typ](node.left.value, node.right.value)
             return Constant('true' if val else 'false')
+
+    def _hardcoded_if(self, node):
+        if isinstance(node, Conditional) and \
+                isinstance(node.condition, Constant):
+            return node.then if node.condition.typ == 'true' else node.else_
 
 if __name__ == '__main__':
     import jsbeautifier
