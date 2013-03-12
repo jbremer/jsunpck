@@ -157,7 +157,12 @@ class Conditional(Base):
         self.else_ = else_
 
     def __str__(self):
-        ret = 'if%s\n%s\n' % (str(self.condition), str(self.then))
+        if isinstance(self.condition, Identifier):
+            ret = 'if(%s)' % str(self.condition)
+        else:
+            ret = 'if %s' % str(self.condition)
+
+        ret += '\n%s\n' % str(self.then)
         if self.else_:
             ret += '\nelse\n%s\n' % str(self.else_)
         return ret
