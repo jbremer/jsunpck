@@ -479,6 +479,7 @@ class Simplifier:
         '_parse_int',
         '_rename_variables',
         '_subtract_itself',
+        '_const_arithmetic',
         '_const_str_length',
     ]
 
@@ -552,6 +553,32 @@ class Simplifier:
         if node == Operation('-', Identifier(), Identifier()) and \
                 node.left.name == node.right.name:
             return Int(0)
+
+    def _const_arithmetic(self, node):
+        tbl = {
+            '-': lambda x: -x,
+            '~': lambda x: ~x,
+        }
+        tbl2 = {
+            '+': lambda x, y: x + y,
+            '-': lambda x, y: x - y,
+            '*': lambda x, y: x * y,
+            '/': lambda x, y: x / y,
+            '%': lambda x, y: x % y,
+            '>>': lambda x, y: x >> y,
+            '<<': lambda x, y: x << y,
+            '^': lambda x, y: x ^ y,
+            '&&': lambda x, y: y if x else 0,
+            '||': lambda x, y: x if x else y,
+        }
+        if Base.__cmp__(node, Operation(None, Int(), Int())) == 0:
+            if node.right is None:
+                return Int(tbl[node.typ](node.left.value))
+
+            if node.typ in ('/', '%') and not node.right.value:
+                return
+
+            return Int(tbl2[node.typ](node.left.value, node.right.value))
 
     def _const_str_length(self, node):
         if node == Dot(String(), Identifier('length')):
