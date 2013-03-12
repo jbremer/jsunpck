@@ -3,6 +3,10 @@ import jsparser
 import re
 
 
+def base_n(num, b, chrs='0123456789abcdefghijklmnopqrstuvwxyz'):
+    return '0' if not num else base_n(num // b, b).lstrip('0') + chrs[num % b]
+
+
 class Base:
     children = []
 
@@ -496,8 +500,10 @@ class Simplifier:
         if not isinstance(node, Call):
             return node
 
-        if node.function == Dot(Int(), Identifier('toString')):
-            return String(str(node.function.left))
+        fn, params = node.function, node.params.values
+        if fn == Dot(Int(), Identifier('toString')):
+            base = 10 if not len(params) else params[0].value
+            return String(base_n(int(fn.left.value), base))
 
         tbl = {
             'toLowerCase': lambda x: x.lower(),
