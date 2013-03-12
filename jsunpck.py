@@ -17,8 +17,20 @@ class Base:
         if self.__class__ != other.__class__:
             return 1
 
-        for x in self.children:
-            if cmp(getattr(self, x), getattr(other, x)) > 0:
+        for name, val1, val2 in ((x, getattr(self, x), getattr(other, x))
+                                 for x in self.children):
+            # when comparing a list, the compare function might return -1,
+            # however, in this case we want to return 1 (both -1 and 1
+            # indicate failure, but -1 is a "special" kind of failure, namely,
+            # indicating the wild card. Or, atleast, that's how we abuse it
+            # here.)
+            if isinstance(val1, list) and cmp(val1, val2):
+                return 1
+
+            # return failure if there was failure in one of the children
+            # (note that the normal failure -1 doesn't count, because we use
+            # it to specify that a wildcard was used.)
+            if cmp(val1, val2) > 0:
                 return 1
 
         return 0
