@@ -96,6 +96,16 @@ class Array(Base):
         return Base.__cmp__(self, other) or self.typ != other.typ
 
 
+class Return(Base):
+    children = 'value',
+
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return 'return ' + str(self.value)
+
+
 class Var(Base):
     children = 'variables',
 
@@ -305,6 +315,9 @@ class _Translator:
     def _array(self, node):
         return Array(self.typ, [_parse(node[x]) for x in xrange(len(node))])
 
+    def _return(self, node):
+        return Return(_parse(node.value))
+
     def _var(self, node):
         return Var([_parse(node[x]) for x in xrange(len(node))])
 
@@ -374,6 +387,7 @@ rules = {
     'list': _Translator(parser='array'),
     'array_init': _Translator('array_init', parser='array'),
     'block': _Translator(),
+    'return': _Translator(),
 
     'semicolon': _Translator('semicolon', parser='container'),
     'identifier': _Translator(),
