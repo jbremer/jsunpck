@@ -356,6 +356,10 @@ class Regexp(Base):
     def __str__(self):
         return '/%s/%s' % (self.regex, self.modifiers)
 
+    def __cmp__(self, other):
+        return Base.__cmp__(self, other) or self.regex != other.regex or \
+            self.modifiers != other.modifiers
+
 
 class _Translator:
     def __init__(self, typ=None, parser=None, **kwargs):
@@ -576,6 +580,7 @@ class Simplifier:
         '_const_comparison',
         '_hardcoded_if',
         '_complex_expr',
+        '_replace_regexp',
     ]
 
     def _concat_strings(self, node):
@@ -723,6 +728,13 @@ class Simplifier:
             return Comparison('!=',
                               node.left.left,
                               Int(node.left.right.value + node.right.value))
+
+    def _replace_regexp(self, node):
+        # str.replace(/^/, String) -> str
+        if node == Call(Dot(String(), Identifier('replace')),
+                        Array(None, [Regexp('^', ''),
+                                     Identifier('String')])):
+            return node.function.left
 
 if __name__ == '__main__':
     import jsbeautifier
