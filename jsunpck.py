@@ -10,6 +10,9 @@ def base_n(num, b, chrs='0123456789abcdefghijklmnopqrstuvwxyz'):
 class Base:
     children = []
 
+    def __str__(self):
+        return ''
+
     def __cmp__(self, other):
         if other.__class__ == Base:
             return -1
@@ -138,7 +141,7 @@ class Operation(Base):
 
     def __str__(self):
         if self.right is None:
-            return self.typ + str(self.left)
+            return '(%s%s)' % (self.typ, str(self.left))
         return '(%s %s %s)' % (str(self.left), self.typ, str(self.right))
 
     def __cmp__(self, other):
@@ -251,6 +254,17 @@ class For(Base):
                                          str(self.body))
 
 
+class While(Base):
+    children = 'body', 'condition'
+
+    def __init__(self, body, condition):
+        self.body = body
+        self.condition = condition
+
+    def __str__(self):
+        return 'while (%s)\n%s\n' % (str(self.condition), str(self.body))
+
+
 class Assign(Base):
     children = 'left', 'right'
 
@@ -334,6 +348,15 @@ class Catch(Base):
         return 'catch (%s) %s' % (self.var_name, str(self.block))
 
 
+class Regexp(Base):
+    def __init__(self, regex, modifiers):
+        self.regex = regex
+        self.modifiers = modifiers
+
+    def __str__(self):
+        return '/%s/%s' % (self.regex, self.modifiers)
+
+
 class _Translator:
     def __init__(self, typ=None, parser=None, **kwargs):
         self.typ = typ
@@ -363,7 +386,7 @@ class _Translator:
 
     def _container(self, node):
         if self.typ == 'semicolon':
-            return _parse(node.expression)
+            return _parse(node.expression) if node.expression else Base()
         raise Exception(self.typ)
 
     def _operation(self, node):
@@ -404,6 +427,9 @@ class _Translator:
                    update=_parse(node.update),
                    body=_parse(node.body))
 
+    def _while(self, node):
+        return While(body=_parse(node.body), condition=_parse(node.condition))
+
     def _assign(self, node):
         return Assign(node.value, _parse(node[0]), _parse(node[1]))
 
@@ -425,6 +451,9 @@ class _Translator:
 
     def _catch(self, node):
         return Catch(node.varName, _parse(node.block))
+
+    def _regexp(self, node):
+        return Regexp(node.value['regexp'], node.value['modifiers'])
 
 # rules to extract all relevant fields from the javascript tokens
 rules = {
@@ -456,6 +485,8 @@ rules = {
     'and': _Translator('&&', parser='operation'),
     'or': _Translator('||', parser='operation'),
     'increment': _Translator('++', parser='operation', postfix='postfix'),
+    'decrement': _Translator('--', parser='operation', postfix='postfix'),
+    'not': _Translator('!', parser='operation'),
 
     'lt': _Translator('<', parser='comparison'),
     'gt': _Translator('>', parser='comparison'),
@@ -469,6 +500,7 @@ rules = {
     'new': _Translator(),
     'new_with_args': _Translator(),
     'for': _Translator(),
+    'while': _Translator(),
     'assign': _Translator(),
     'index': _Translator(),
     'dot': _Translator(),
@@ -479,6 +511,7 @@ rules = {
 
     'try': _Translator(),
     'catch': _Translator(),
+    'regexp': _Translator(),
 }
 
 
@@ -502,17 +535,12 @@ class Simplifier:
 
     def __init__(self, root):
         self.root = root
-        self.simplified = False
-
         self.variables = {}
 
     def __str__(self):
         return str(self.simplify())
 
     def simplify(self):
-        if self.simplified:
-            return self.root
-
         def walk(node, simplifier):
             self.count += 1
             for name, x in ((name, getattr(node, name))
@@ -545,9 +573,9 @@ class Simplifier:
         '_subtract_itself',
         '_const_arithmetic',
         '_const_str_length',
-        '_single_return_value',
         '_const_comparison',
         '_hardcoded_if',
+        '_complex_expr',
     ]
 
     def _concat_strings(self, node):
@@ -653,11 +681,6 @@ class Simplifier:
         if node == Dot(String(), Identifier('length')):
             return Int(len(node.left.value))
 
-    def _single_return_value(self, node):
-        # function with no parameters and only a return statement
-        if node == Function(Array('script', [Return(Base())]), []):
-            return node.function.values[0].value
-
     def _const_comparison(self, node):
         tbl = {
             '<': lambda x, y: x < y,
@@ -679,6 +702,27 @@ class Simplifier:
                 'false': node.else_,
             }
             return tbl.get(node.condition.typ, node)
+
+    def _complex_expr(self, node):
+        # x = x + 1 -> x++
+        if node == Assign('=', Identifier(),
+                          Operation('+', Identifier(), Int())) and \
+                node.left.name == node.right.left.name:
+            return Operation('++', Identifier(node.left.name), None)
+
+        # x = 1 + x -> x++
+        if node == Assign('=', Identifier(),
+                          Operation('+', Int(), Identifier())) and \
+                node.left.name == node.right.right.name:
+            return Operation('++', Identifier(node.left.name), None)
+
+        # (x - 1) != 0 -> x != 1
+        if node == Comparison('!=',
+                              Operation('-', Identifier(), Int()),
+                              Int()):
+            return Comparison('!=',
+                              node.left.left,
+                              Int(node.left.right.value + node.right.value))
 
 if __name__ == '__main__':
     import jsbeautifier
