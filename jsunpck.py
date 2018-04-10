@@ -360,6 +360,41 @@ class Regexp(Base):
         return Base.__cmp__(self, other) or self.regex != other.regex or \
             self.modifiers != other.modifiers
 
+class ObjectInit(Base):
+    def __str__(self):
+        return '{}'
+
+class Delete(Base):
+    children = 'items',
+
+    def __init__(self, items):
+        self.items = items
+
+    def __str__(self):
+        return 'delete %s' % ', '.join(str(item) for item in self.items)
+
+    def __cmp__(self, other):
+        return Base.__cmp__(self, other) or self.items != other.items
+
+class Hook(Base):
+    children = 'comparison', 'positive', 'negative'
+
+    def __init__(self, comparison, positive, negative):
+        self.comparison = comparison
+        self.positive = positive
+        self.negative = negative
+
+    def __str__(self):
+        return '%s ? %s : %s' % (
+            self.comparison, self.positive, self.negative
+        )
+
+    def __cmp__(self, other):
+        return (
+            Base.__cmp__(self, other) or
+            self.comparison != other.comparison or
+            self.positive != other.postfix or self.negative != other.negative
+        )
 
 class _Translator:
     def __init__(self, typ=None, parser=None, **kwargs):
@@ -459,6 +494,18 @@ class _Translator:
     def _regexp(self, node):
         return Regexp(node.value['regexp'], node.value['modifiers'])
 
+    def _object_init(self, node):
+        return ObjectInit()
+
+    def _this(self, node):
+        return Identifier("this")
+
+    def _delete(self, node):
+        return Delete([_parse(x) for x in node])
+
+    def _hook(self, node):
+        return Hook(_parse(node[0]), _parse(node[1]), _parse(node[2]))
+
 # rules to extract all relevant fields from the javascript tokens
 rules = {
     'script': _Translator('script', parser='array'),
@@ -496,6 +543,7 @@ rules = {
     'gt': _Translator('>', parser='comparison'),
     'eq': _Translator('==', parser='comparison'),
     'ne': _Translator('!=', parser='comparison'),
+    'strict_eq': _Translator('===', parser='comparison'),
 
     'if': _Translator(parser='conditional'),
 
@@ -516,6 +564,11 @@ rules = {
     'try': _Translator(),
     'catch': _Translator(),
     'regexp': _Translator(),
+
+    'object_init': _Translator(),
+    'this': _Translator(),
+    'delete': _Translator(),
+    'hook': _Translator(),
 }
 
 
